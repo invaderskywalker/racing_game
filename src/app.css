@@ -29,7 +29,7 @@ html, body {
   padding: 0;
 }
 
-@media (prefers-color-scheme: dark) {
+/* @media (prefers-color-scheme: dark) {
   :root {
     --mdc-theme-background: #332b2b;
     --mdc-theme-surface: #292828;
@@ -39,7 +39,7 @@ html, body {
     --mdc-nav-bg-end: #bb86fc;
     --mdc-theme-background-1: #210606;
   }
-}
+} */
 
 
 

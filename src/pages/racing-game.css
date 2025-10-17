@@ -1,0 +1,54 @@
+/* Racing Game Page Styles - Enhanced */
+.racing-game-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background: linear-gradient(135deg, #17193b 0%, #253469 50%, #18e0c9 100%);
+  color: #fff;
+  min-height: 100vh;
+}
+
+.racing-game-container h1 {
+  font-family: 'Orbitron', 'Segoe UI', Arial, sans-serif;
+  font-size: 2.4rem;
+  letter-spacing: 0.09em;
+  font-weight: 900;
+  margin-top: 36px;
+  text-shadow: 0 4px 20px #18e0c980, 0 1px 8px #17193be0;
+  background: linear-gradient(90deg, #18e0c9, #cb67e7, #1776fa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+#racing-game-canvas-placeholder {
+  width: 900px;
+  height: 600px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30,32,60,0.95);
+  border-radius: 22px;
+  margin-top: 32px;
+  box-shadow: 0 8px 40px rgba(35, 255, 235, 0.13), inset 0 2px 18px #18e0c955, 0 1.5px 20px #172580cc;
+  border: 4px solid #18e0c9;
+  transition: box-shadow 0.3s, border-color 0.3s;
+}
+
+#racing-game-canvas-placeholder:hover {
+  box-shadow: 0 12px 60px #19e0e1cc, 0 2px 30px #cb67e7cc;
+  border-color: #cb67e7;
+}
+
+@media (max-width: 1000px) {
+  #racing-game-canvas-placeholder {
+    width: 98vw;
+    height: 47vw;
+    min-height: 350px;
+    max-width: 99vw;
+    margin-top: 20px;
+  }
+}

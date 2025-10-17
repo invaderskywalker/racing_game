@@ -1,6 +1,9 @@
 // src/app.ts
 import { loadStylesheet } from './components/core/stylesheet';
-import { TimeTracker } from './pages/time-tracker';
+import { HomePage } from './pages/home';
+import { TeamPage } from './pages/team';
+import { Editor } from './pages/editor';
+import { RacingGamePage } from './pages/racing-game';
 
 interface Route {
   component: new () => HTMLElement;
@@ -8,7 +11,10 @@ interface Route {
 }
 
 const routes: Record<string, Route> = {
-  home: { component: TimeTracker, title: 'Tracker' },
+  home: { component: HomePage, title: 'Home' },
+  team: { component: TeamPage, title: 'Editor Team' },
+  editor: { component: Editor, title: 'Editor' },
+  racing: { component: RacingGamePage, title: 'Racing Game' }
 };
 
 class App extends HTMLElement {
@@ -26,11 +32,10 @@ class App extends HTMLElement {
 
     this.addEventListener('navigate', (e: Event) => {
       const customEvent = e as CustomEvent<{ page: string }>;
-      console.log('debug listener .. ', customEvent);
       const { page } = customEvent.detail;
       this.navigateTo(page);
     });
-    
+
     window.addEventListener('popstate', () => this.renderPage());
     this.renderPage();
   }
@@ -56,7 +61,6 @@ class App extends HTMLElement {
     }
 
     document.title = route.title || 'My App';
-
     this.container.setAttribute('tabindex', '-1');
     this.container.focus();
   }
