@@ -1,69 +1,68 @@
-// src/app.ts
-import { loadStylesheet } from './components/core/stylesheet';
-import { HomePage } from './pages/home';
-import { TeamPage } from './pages/team';
-import { Editor } from './pages/editor';
-import { RacingGamePage } from './pages/racing-game';
+import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { initPhysicsWorld } from './physicsworld';
+import { CarController } from './carController';
 
-interface Route {
-  component: new () => HTMLElement;
-  title: string;
-}
+const clock = new THREE.Clock();
 
-const routes: Record<string, Route> = {
-  home: { component: HomePage, title: 'Home' },
-  team: { component: TeamPage, title: 'Editor Team' },
-  editor: { component: Editor, title: 'Editor' },
-  racing: { component: RacingGamePage, title: 'Racing Game' }
-};
-
-class App extends HTMLElement {
-  private _shadow: ShadowRoot;
-  private container: HTMLDivElement;
+class App {
+  scene: THREE.Scene;
+  camera: THREE.PerspectiveCamera;
+  renderer: THREE.WebGLRenderer;
+  world: CANNON.World;
+  car: CarController;
+  orbit: OrbitControls;
 
   constructor() {
-    super();
-    this._shadow = this.attachShadow({ mode: 'open' });
-    loadStylesheet(this._shadow, new URL('./app.css', import.meta.url).toString());
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0xa0d8ef);
 
-    this.container = document.createElement('div');
-    this.container.id = 'app-container';
-    this._shadow.appendChild(this.container);
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(10, 10, 5);
+    this.scene.add(light);
 
-    this.addEventListener('navigate', (e: Event) => {
-      const customEvent = e as CustomEvent<{ page: string }>;
-      const { page } = customEvent.detail;
-      this.navigateTo(page);
-    });
+    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    this.camera.position.set(0, 8, -15);
 
-    window.addEventListener('popstate', () => this.renderPage());
-    this.renderPage();
+    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(this.renderer.domElement);
+
+    this.world = initPhysicsWorld();
+
+    this.orbit = new OrbitControls(this.camera, this.renderer.domElement);
+    this.orbit.target.set(0, 2, 0);
+    this.orbit.update();
+
+    this.car = new CarController(this.scene, this.world);
+    this.car.loadModel();
+
+    this.animate();
+    window.addEventListener('resize', () => this.onWindowResize());
   }
 
-  navigateTo(page: string): void {
-    const basePath = import.meta.env?.BASE_URL || '/';
-    history.pushState({}, '', `${basePath}${page || 'home'}`);
-    this.renderPage();
-  }
+  animate() {
+    requestAnimationFrame(() => this.animate());
+    const delta = clock.getDelta();
+    this.world.step(1 / 60, delta, 3);
+    this.car.updatePhysics(delta);
 
-  renderPage(): void {
-    const basePath = import.meta.env?.BASE_URL || '/';
-    const path = window.location.pathname.replace(basePath, '') || 'home';
-    console.log('Rendering page:', path);
-    const route = routes[path] || routes['home'];
-
-    this.container.innerHTML = '';
-    const component = new route.component();
-    this.container.appendChild(component);
-
-    if ((component as any).updateActiveLink) {
-      (component as any).updateActiveLink(path);
+    // follow car
+    if (this.car.carModel) {
+      const carPos = this.car.carModel.position;
+      this.camera.position.lerp(new THREE.Vector3(carPos.x, carPos.y + 5, carPos.z - 10), 0.05);
+      this.camera.lookAt(carPos);
     }
 
-    document.title = route.title || 'My App';
-    this.container.setAttribute('tabindex', '-1');
-    this.container.focus();
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  onWindowResize() {
+    this.camera.aspect = window.innerWidth / window.innerHeight;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
   }
 }
 
-customElements.define('app-root', App);
+new App();

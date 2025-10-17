@@ -1,23 +1,23 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "useDefineForClassFields": true,
+    "target": "ES2020",
     "module": "ESNext",
     "lib": ["ESNext", "DOM"],
     "moduleResolution": "Node",
-    "strict": false,                    // disable strict mode
-    "noUnusedLocals": false,            // ignore unused variables
-    "noUnusedParameters": false,        // ignore unused params
-    "noImplicitAny": false,             // allow implicit 'any'
-    "noImplicitReturns": false,         // ignore missing returns
-    "skipLibCheck": true,               // skip checking all declaration files
-    "allowJs": true,                     // allow JS files
-    "resolveJsonModule": true,
-    "isolatedModules": false,            // disable isolatedModules
+    "strict": false,
+    "skipLibCheck": true,
+    "noImplicitAny": false,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "allowJs": true,
     "sourceMap": true,
-    "noEmit": true
+    "noEmit": true,
+
+    // Optional but helpful:
+    "types": ["three"],
+    "forceConsistentCasingInFileNames": true
   },
-  "include": ["src"],
+  "include": ["src", "src/types"],
   "exclude": ["node_modules", "dist"]
 }
