@@ -43,7 +43,7 @@ export class BasePage extends BaseComponent {
     this.main = this.createElement('main', {
       style: {
         width: '100%',
-        padding: '16px',
+        // padding: '16px',
         boxSizing: 'border-box',
       },
     });

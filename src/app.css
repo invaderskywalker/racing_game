@@ -27,6 +27,14 @@
 html, body {
   margin: 0;
   padding: 0;
+  overflow: hidden; /* 👈 disables scrolling */
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: auto;
 }
 
 /* @media (prefers-color-scheme: dark) {
