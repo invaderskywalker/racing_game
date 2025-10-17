@@ -14,6 +14,8 @@
     "vite": "^7.1.7"
   },
   "dependencies": {
-    "three": "^0.180.0"
+    "three": "^0.180.0",
+    "gsap": "^3.13.0",
+    "three-stdlib": "^2.22.0"
   }
 }

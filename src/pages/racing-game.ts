@@ -1,9 +1,9 @@
-// src/pages/racing-game.ts
-// Modular 3D Racing Game Page with strict, smooth type-safe third-person camera-follow logic
+// Modular 3D Racing Game Page with GSAP Cinematic Camera Intro, audio (ambient+engine), and safe control lifecycle
 import { BasePage } from '../components/core/base-page';
 import * as THREE from 'three';
 import { RacingCar3D } from '../components/ui/racing-game/car';
 import { createWorld } from '../components/racing-game/world';
+import gsap from 'gsap';
 
 interface CarControls {
   up: boolean;
@@ -12,7 +12,7 @@ interface CarControls {
   right: boolean;
 }
 
-// CarController: Handles car movement, orientation, and simple physics, strictly typed
+// CarController: Handles car movement, orientation, and simple physics
 class CarController {
   public position: THREE.Vector3;
   public rotationY: number;
@@ -89,12 +89,22 @@ export class RacingGamePage extends BasePage {
   private controls: CarControls = { up: false, down: false, left: false, right: false };
   private hudElem: HTMLElement | null = null;
 
+  // Audio management
+  private audioListener: THREE.AudioListener | null = null;
+  private ambientSound: THREE.Audio | null = null;
+  private ambientSoundLoader: THREE.AudioLoader | null = null;
+  private ambientSoundHasStarted: boolean = false;
+
+  private readonly ambientSoundURL: string = '/audio/ambient_loop.mp3';
+
   // Camera-follow parameters (can be tweaked)
-  private readonly cameraDistance: number = 12.2/4;
-  private readonly cameraHeight: number = 7.2/2;
+  private readonly cameraDistance: number = 12.2 / 4;
+  private readonly cameraHeight: number = 7.2 / 2;
   private readonly cameraLerpAlpha: number = 0.12; // [0,1], higher=faster snap
   private cameraTarget: THREE.Vector3 = new THREE.Vector3();
   private cameraLookAt: THREE.Vector3 = new THREE.Vector3();
+  // Flag for GSAP cinematic intro/cutscene
+  private isCinematicActive: boolean = true;
 
   constructor() {
     super({ show_header: false });
@@ -134,10 +144,24 @@ export class RacingGamePage extends BasePage {
       this.renderer.dispose();
       this.renderer = null;
     }
+    // Stop, dispose, and nullify ambient sound
+    if (this.ambientSound) {
+      try { this.ambientSound.stop(); } catch (e) {}
+      this.ambientSound.disconnect();
+      // No explicit dispose method, GC will eventually clean buffer
+      this.ambientSound = null;
+    }
+    this.ambientSoundHasStarted = false;
+    this.ambientSoundLoader = null;
+    // Notify car/audio to clean up engine
+    if (this.car && typeof (this.car as any).disposeAudio === "function") {
+      (this.car as any).disposeAudio();
+    }
     window.removeEventListener('keydown', this.handleKeyDown as (this: Window, ev: KeyboardEvent) => any);
     window.removeEventListener('keyup', this.handleKeyUp as (this: Window, ev: KeyboardEvent) => any);
     this.scene = null;
     this.camera = null;
+    this.audioListener = null;
     this.car = null;
     this.carController = null;
   }
@@ -169,28 +193,111 @@ export class RacingGamePage extends BasePage {
     this.scene.background = color;
     this.scene.add(world);
 
+    // AUDIO: AudioListener & Ambient
+    this.audioListener = new THREE.AudioListener();
+
+    // Attach to camera only after creating camera
     this.camera = new THREE.PerspectiveCamera(
       75,
       window.innerWidth / window.innerHeight,
       0.1,
       1000
     );
-    this.camera.position.set(0, this.cameraHeight, this.cameraDistance);
+    this.camera.add(this.audioListener);
+
+    // Set camera far from the car for the initial cinematic
+    const cinematicStart = new THREE.Vector3(0, 22, -44);
+    this.camera.position.copy(cinematicStart);
     this.camera.lookAt(0, 0, 0);
 
+    // Load & Start Ambient Sound
+    this.loadAndPlayAmbientSound();
+
     // Car: Use modular RacingCar3D and CarController
-    this.car = new RacingCar3D();
+    this.car = new RacingCar3D(this.audioListener);
     this.scene.add(this.car);
     this.carController = new CarController(this.car);
+
+    // -- GSAP Cinematic Camera Intro --
+    // After the car is loaded, animate the camera in
+    // Wait for car model to load for correct focus
+    const launchCinematic = () => {
+      if (!this.camera || !this.car) return;
+      // Initial position is already set (far from the car)
+      const carPos = this.car.position;
+      const targetFollowPos = new THREE.Vector3(
+        carPos.x + Math.sin(this.car.rotation.y) * -this.cameraDistance,
+        this.cameraHeight,
+        carPos.z + Math.cos(this.car.rotation.y) * -this.cameraDistance
+      );
+      // Animate position and look direction using gsap timeline
+      const timeline = gsap.timeline({
+        onComplete: () => {
+          // Optional: smooth ease to real follow position, then hand over
+          gsap.to(this.camera!.position, {
+            x: targetFollowPos.x,
+            y: targetFollowPos.y,
+            z: targetFollowPos.z,
+            duration: 0.7,
+            ease: 'power2.out',
+            onUpdate: () => {
+              this.camera!.lookAt(carPos.x, carPos.y + 2.2, carPos.z); // stay targeted
+            },
+            onComplete: () => {
+              this.isCinematicActive = false; // Resume normal follow/camera logic
+            }
+          });
+        }
+      });
+      // Flight: sweep toward track center, then arc down for follow
+      timeline.to(this.camera.position, {
+        x: carPos.x + 0,
+        y: this.cameraHeight + 4.5,
+        z: carPos.z - 16,
+        duration: 1.8,
+        ease: 'power2.inOut',
+        onUpdate: () => {
+          this.camera!.lookAt(carPos.x, carPos.y + 2.2, carPos.z);
+        }
+      })
+      .to(this.camera.position, {
+        x: targetFollowPos.x,
+        y: targetFollowPos.y,
+        z: targetFollowPos.z,
+        duration: 0.95,
+        ease: 'power4.out',
+        onUpdate: () => {
+          this.camera!.lookAt(carPos.x, carPos.y + 2.2, carPos.z);
+        }
+      });
+    };
+    // The car model loading is async; poll for isLoaded
+    const waitForCarLoad = () => {
+      if (this.car && this.car.isLoaded) {
+        launchCinematic();
+      } else {
+        setTimeout(waitForCarLoad, 60);
+      }
+    };
+    waitForCarLoad();
 
     // Render loop
     const render = (): void => {
       if (this.carController) {
-        this.carController.update(this.controls);
+        // Only allow physics control if cinematic is not active
+        if (!this.isCinematicActive) {
+          this.carController.update(this.controls);
+        }
         this.updateHUD();
+        // Engine sound pitch update
+        if (this.car && typeof (this.car as any).setEnginePitch === "function") {
+          (this.car as any).setEnginePitch(Math.abs(this.carController.velocity));
+        }
       }
       if (this.camera && this.car && this.carController) {
-        this.updateCameraFollow();
+        if (!this.isCinematicActive) {
+          this.updateCameraFollow();
+        }
       }
       if (this.renderer && this.scene && this.camera) {
         this.renderer.render(this.scene, this.camera);
@@ -200,10 +307,49 @@ export class RacingGamePage extends BasePage {
     render();
   }
 
-  // Smooth third-person camera-follow logic
-  private updateCameraFollow(): void {
-    if (!this.camera || !this.car) return;
+  // Ambient sound loader/manager
+  private loadAndPlayAmbientSound(): void {
+    if (!this.audioListener) return;
+    if (!this.ambientSoundLoader) {
+      this.ambientSoundLoader = new THREE.AudioLoader();
+    }
+    // If already loaded, just play
+    if (this.ambientSoundHasStarted && this.ambientSound) {
+      if (!this.ambientSound.isPlaying) this.ambientSound.play();
+      return;
+    }
+    if (!this.ambientSound) {
+      this.ambientSound = new THREE.Audio(this.audioListener);
+    }
+    this.ambientSoundLoader.load(
+      this.ambientSoundURL,
+      (buffer: AudioBuffer) => {
+        if (this.ambientSound) {
+          this.ambientSound.setBuffer(buffer);
+          this.ambientSound.setLoop(true);
+          this.ambientSound.setVolume(0.40);
+          // Playing may fail until user interaction (browser restriction)
+          try {
+            this.ambientSound.play();
+            this.ambientSoundHasStarted = true;
+          } catch (e) {
+            // Try play on next gesture
+          }
+          if (this.scene && this.ambientSound) {
+            this.scene.add(this.ambientSound);
+          }
+        }
+      },
+      undefined,
+      (err) => {
+        // Failed to load sound (e.g., file missing). Ignore for now
+      }
+    );
+  }
 
+  // Smooth third-person camera-follow logic (disabled during cinematic)
+  private updateCameraFollow(): void {
+    if (!this.camera || !this.car || this.isCinematicActive) return;
     // Compute desired offset behind and above the car, based on car's orientation
     const carPos: THREE.Vector3 = this.car.position;
     const rotY: number = this.car.rotation.y;
@@ -213,16 +359,15 @@ export class RacingGamePage extends BasePage {
       Math.cos(rotY) * -this.cameraDistance
     );
     const targetPos: THREE.Vector3 = new THREE.Vector3().addVectors(carPos, offset);
-
     // Smoothly lerp camera.position towards the target position
     this.camera.position.lerp(targetPos, this.cameraLerpAlpha);
-
     // Optionally, look slightly above the car for a better view
     this.cameraLookAt.copy(carPos).setY(carPos.y + 2.2);
     this.camera.lookAt(this.cameraLookAt);
   }
 
   private handleKeyDown = (event: KeyboardEvent): void => {
+    if (this.isCinematicActive) return;
     switch (event.key.toLowerCase()) {
       case 'w': case 'arrowup': this.controls.up = true; break;
       case 's': case 'arrowdown': this.controls.down = true; break;
@@ -230,8 +375,8 @@ export class RacingGamePage extends BasePage {
       case 'd': case 'arrowright': this.controls.right = true; break;
     }
   };
-
   private handleKeyUp = (event: KeyboardEvent): void => {
+    if (this.isCinematicActive) return;
     switch (event.key.toLowerCase()) {
       case 'w': case 'arrowup': this.controls.up = false; break;
       case 's': case 'arrowdown': this.controls.down = false; break;
@@ -239,7 +384,6 @@ export class RacingGamePage extends BasePage {
       case 'd': case 'arrowright': this.controls.right = false; break;
     }
   };
-
   private updateHUD(): void {
     if (!this.hudElem || !this.carController) return;
     const speed: number = this.carController.getSpeedKmH();
@@ -253,5 +397,4 @@ export class RacingGamePage extends BasePage {
     `;
   }
 }
-
 customElements.define('racing-game-page', RacingGamePage);
