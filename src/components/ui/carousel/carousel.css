@@ -1,0 +1,82 @@
+/* src/components/ui/carousel/carousel.css */
+.mdc-carousel {
+  position: relative;
+  max-width: 800px;
+  margin: 0 auto;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--mdc-elevation-8);
+  background: var(--mdc-theme-surface);
+}
+
+.mdc-carousel__track {
+  position: relative;
+  overflow: hidden;
+}
+
+.mdc-carousel__slide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.mdc-carousel__slide img {
+  display: block;
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+.mdc-carousel__caption {
+  padding: 8px;
+  font-family: 'Roboto', sans-serif;
+  font-size: 0.75rem;
+  color: var(--mdc-theme-on-surface);
+  text-align: center;
+}
+
+.mdc-carousel__button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--mdc-theme-primary);
+  color: var(--mdc-theme-on-primary);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  box-shadow: var(--mdc-elevation-2);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mdc-carousel__button:hover:not(:disabled) {
+  background: var(--mdc-theme-secondary);
+  box-shadow: var(--mdc-elevation-8);
+}
+
+.mdc-carousel__button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.mdc-carousel__button--prev {
+  left: 16px;
+}
+
+.mdc-carousel__button--next {
+  right: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .mdc-carousel {
+    background: var(--mdc-theme-surface);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mdc-carousel__button {
+    transition: none;
+  }
+}

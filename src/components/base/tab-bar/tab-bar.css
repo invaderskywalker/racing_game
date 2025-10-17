@@ -1,0 +1,61 @@
+/* src/components/base/tab-bar/tab-bar.css */
+.tab-bar {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  border-bottom: 1px solid var(--mdc-theme-outline, #ddd);
+  background-color: var(--mdc-theme-background, #fff);
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: 4px;
+  align-items: center;
+  position: relative;
+}
+
+.preview-button {
+  margin-left: auto;
+  padding: 6px 12px;
+  cursor: pointer;
+  background-color: var(--mdc-theme-background-1, #f5f5f5);
+  border: 1px solid var(--mdc-theme-outline, #ddd);
+  border-radius: 4px;
+  color: var(--mdc-theme-on-background, #333);
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+.preview-button.active {
+  background-color: var(--mdc-theme-primary, #6200ee);
+  color: var(--mdc-theme-on-primary, #fff);
+}
+
+.preview-button:hover {
+  background-color: var(--mdc-theme-primary-light, #9e47ff);
+}
+
+.tab-bar::-webkit-scrollbar {
+  height: 6px;
+}
+
+.tab-bar::-webkit-scrollbar-thumb {
+  background: var(--mdc-theme-outline, #ccc);
+  border-radius: 3px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .tab-bar {
+    background-color: var(--mdc-theme-background, #1e1e1e);
+    border-bottom-color: var(--mdc-theme-outline, #444);
+  }
+  .preview-button {
+    background-color: var(--mdc-theme-background-1, #2e2e2e);
+    border-color: var(--mdc-theme-outline, #444);
+    color: var(--mdc-theme-on-background, #ddd);
+  }
+  .preview-button.active {
+    background-color: var(--mdc-theme-primary, #bb86fc);
+  }
+  .preview-button:hover {
+    background-color: var(--mdc-theme-primary-light, #d4b2ff);
+  }
+}

@@ -1,0 +1,167 @@
+.button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px; /* Increased padding for a premium feel */
+  border: none;
+  border-radius: 10px; /* Softer, modern corners */
+  cursor: pointer;
+  font-size: 1.1em; /* Slightly larger text */
+  font-weight: 600; /* Bolder text for emphasis */
+  text-decoration: none;
+  background: linear-gradient(135deg, var(--button-bg-start, #0e639c), var(--button-bg-end, #1177bb)); /* Gradient for depth */
+  color: #fff;
+  transition: background 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease, border 0.3s ease;
+  user-select: none;
+  overflow: hidden;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2); /* Subtle default shadow */
+}
+
+.button:focus {
+  outline: none;
+  border: 2px solid #40c4ff; /* Vibrant focus ring */
+  box-shadow: 0 0 0 4px rgba(64, 196, 255, 0.4); /* Enhanced focus glow */
+}
+
+.button--primary {
+  --button-bg-start: #0e639c;
+  --button-bg-end: #1177bb;
+}
+
+.button--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1177bb, #2196f3); /* Brighter gradient on hover */
+  transform: translateY(-2px); /* Lift effect */
+  box-shadow: 0 6px 16px rgba(33, 150, 243, 0.4), 0 0 8px rgba(33, 150, 243, 0.6); /* Glow effect */
+}
+
+.button--primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 3px 8px rgba(33, 150, 243, 0.3); /* Reduced shadow on click */
+}
+
+.button--secondary {
+  --button-bg-start: #6c757d;
+  --button-bg-end: #8e959c;
+}
+
+.button--secondary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #8e959c, #a6adb4); /* Brighter secondary gradient */
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(108, 117, 125, 0.4), 0 0 8px rgba(108, 117, 125, 0.6); /* Glow effect */
+}
+
+.button--secondary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 3px 8px rgba(108, 117, 125, 0.3);
+}
+
+/* Theme: Neon (example custom theme) */
+.button--neon {
+  /* --button-bg-start: #ff00ff;
+  --button-bg-end: #00ffcc; */
+  border: 1px solid #00ffcc;
+}
+
+.button--neon:hover:not(:disabled) {
+  /* background: linear-gradient(135deg, #ff33ff, #33ffcc); */
+  box-shadow: 0 6px 16px rgba(0, 255, 204, 0.4), 0 0 12px rgba(0, 255, 204, 0.7);
+}
+
+.button--neon:active:not(:disabled) {
+  box-shadow: 0 3px 8px rgba(0, 255, 204, 0.3);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Ripple effect */
+.button::after {
+  content: '';
+  position: absolute;
+  background: rgba(255, 255, 255, 0.4); /* Slightly stronger ripple */
+  border-radius: 50%;
+  transform: scale(0);
+  opacity: 1;
+  transition: transform 0.6s ease, opacity 0.6s ease;
+  pointer-events: none;
+}
+
+.button:active::after {
+  transform: scale(3); /* Larger ripple */
+  opacity: 0;
+}
+
+/* Icon styles */
+.icon {
+  margin-right: 10px;
+  font-size: 1.3em;
+  transition: transform 0.3s ease, rotate 0.3s ease;
+}
+
+.button:hover:not(:disabled) .icon {
+  transform: translateX(3px) rotate(10deg); /* Subtle icon bounce and rotate */
+}
+
+.button:active:not(:disabled) .icon {
+  transform: scale(1.2); /* Pop effect on click */
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .button--primary {
+    --button-bg-start: #1976d2;
+    --button-bg-end: #4fc3f7;
+  }
+  .button--secondary {
+    --button-bg-start: #455a64;
+    --button-bg-end: #78909c;
+  }
+  /* .button--neon {
+    --button-bg-start: #63e936;
+    --button-bg-end: #0edc78;
+  } */
+  .button:focus {
+    border-color: #80deea;
+    box-shadow: 0 0 0 4px rgba(128, 222, 234, 0.5);
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .button--primary {
+    background: #01579b;
+    border: 2px solid #fff;
+    box-shadow: none;
+  }
+  .button--secondary {
+    background: #37474f;
+    border: 2px solid #fff;
+    box-shadow: none;
+  }
+  .button--neon {
+    background: #c2185b;
+    border: 2px solid #fff;
+    box-shadow: none;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .button::after,
+  .icon {
+    transition: none;
+  }
+  .button:hover:not(:disabled),
+  .button:active:not(:disabled),
+  .button:hover:not(:disabled) .icon,
+  .button:active:not(:disabled) .icon {
+    transform: none;
+    box-shadow: none;
+  }
+}

@@ -1,0 +1,70 @@
+/* src/app.css */
+:root {
+  --mdc-theme-primary: #707070;
+  --mdc-theme-secondary: #018786;
+  --mdc-theme-background: #b4b2b2;
+  --mdc-theme-surface: #fff;
+  --mdc-theme-on-primary: #b4b2b2;
+  --mdc-theme-on-secondary: #fff;
+  --mdc-theme-on-background: #2a2929;
+  --mdc-theme-on-surface: #000;
+  --mdc-elevation-2: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --mdc-elevation-8: 0 4px 8px rgba(0, 0, 0, 0.3);
+  --mdc-nav-bg-start: #6200ee;
+  --mdc-nav-bg-end: #7c4dff;
+  margin: 0;
+  padding: 0;
+
+  font-family: 'Roboto', 'Inter', 'Segoe UI', Arial, sans-serif;
+  margin: 0 auto;
+  background: var(--mdc-theme-surface);
+  border-radius: 8px;
+  box-shadow: var(--mdc-elevation-8);
+  transition: background 0.3s ease;
+}
+
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mdc-theme-background: #332b2b;
+    --mdc-theme-surface: #292828;
+    --mdc-theme-on-background: #fff;
+    --mdc-theme-on-surface: #fff;
+    --mdc-nav-bg-start: #3700b3;
+    --mdc-nav-bg-end: #bb86fc;
+    --mdc-theme-background-1: #210606;
+  }
+}
+
+
+
+@media (prefers-contrast: high) {
+  nav {
+    background: #01579b;
+    box-shadow: none;
+    border: 2px solid #fff;
+  }
+  nav a {
+    color: #fff;
+    border: 1px solid #fff;
+  }
+  nav a[aria-current="page"] {
+    background: #0288d1;
+    border: 2px solid #fff;
+  }
+  nav a::after {
+    display: none;
+  }
+}
+
+
+.time-tracker-main-page {
+  background: #eaebed;
+  height: 100vh;
+  width: 100%;
+}

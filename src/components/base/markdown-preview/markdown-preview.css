@@ -1,0 +1,17 @@
+/* src/components/ui/markdown-preview/markdown-preview.css */
+.markdown-preview {
+  flex: 1;
+  padding: 12px;
+  background: var(--mdc-theme-background, #fff);
+  color: var(--mdc-theme-on-background, #333);
+  overflow-y: auto;
+  box-sizing: border-box;
+  height: 100%;
+}
+
+@media (prefers-color-scheme: dark) {
+  .markdown-preview {
+    background: #fff;
+    color:  #aaa;
+  }
+}

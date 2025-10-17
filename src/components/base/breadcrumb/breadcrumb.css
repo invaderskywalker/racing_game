@@ -1,0 +1,43 @@
+/* src/components/base/breadcrumb/breadcrumb.css */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: var(--mdc-theme-background, #fff);
+  border-bottom: 1px solid var(--mdc-theme-outline, #ddd);
+  font-size: 0.9rem;
+  color: var(--mdc-theme-on-background, #333);
+}
+
+.breadcrumb-segment {
+  cursor: pointer;
+  color: var(--mdc-theme-primary, #6200ee);
+  transition: color 0.2s;
+}
+
+.breadcrumb-segment:hover {
+  color: var(--mdc-theme-primary-dark, #3c00b3);
+  text-decoration: underline;
+}
+
+.breadcrumb-separator {
+  color: var(--mdc-theme-on-background, #666);
+}
+
+@media (prefers-color-scheme: dark) {
+  .breadcrumb {
+    background-color: var(--mdc-theme-background, #1e1e1e);
+    border-bottom-color: var(--mdc-theme-outline, #444);
+    color: var(--mdc-theme-on-background, #ddd);
+  }
+  .breadcrumb-segment {
+    color: var(--mdc-theme-primary, #bb86fc);
+  }
+  .breadcrumb-segment:hover {
+    color: var(--mdc-theme-primary-dark, #9975d6);
+  }
+  .breadcrumb-separator {
+    color: var(--mdc-theme-on-background, #aaa);
+  }
+}

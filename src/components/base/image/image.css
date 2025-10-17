@@ -1,0 +1,30 @@
+/* components/image/image.css */
+.mdc-image {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--mdc-elevation-2);
+  background: var(--mdc-theme-surface);
+}
+
+img {
+  display: block;
+  border-radius: 8px;
+}
+
+figcaption {
+  padding: 8px;
+  font-family: 'Roboto', sans-serif;
+  font-size: 0.75rem;
+  color: var(--mdc-theme-on-surface);
+  text-align: center;
+}
+
+@media (prefers-color-scheme: dark) {
+  .mdc-image {
+    background: var(--mdc-theme-surface);
+  }
+}

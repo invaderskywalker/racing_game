@@ -1,0 +1,39 @@
+/* src/components/base/tab/tab.css */
+.tab {
+  padding: 8px 12px;
+  cursor: pointer;
+  user-select: none;
+  background-color: var(--mdc-theme-background-1, #f5f5f5);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 8px;
+  color: rgb(80, 80, 80);
+}
+
+.tab.active {
+  background-color: var(--mdc-theme-primary, #b6b6b6);
+  color: rgb(164, 164, 164);
+}
+
+.close-tab {
+  margin-left: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.close-tab:hover {
+  color: var(--mdc-theme-error, #b00020);
+}
+
+@media (prefers-color-scheme: dark) {
+  .tab {
+    background-color: var(--mdc-theme-background-1, #2e2e2e);
+    color: rgb(200, 200, 200);
+  }
+  .tab.active {
+    color: rgb(255, 255, 255);
+  }
+}
