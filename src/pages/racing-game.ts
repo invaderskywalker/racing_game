@@ -1,31 +1,38 @@
 // src/pages/racing-game.ts
-// Modular 3D Racing Game Page with robust CarController
+// Modular 3D Racing Game Page with strict, smooth type-safe third-person camera-follow logic
 import { BasePage } from '../components/core/base-page';
 import * as THREE from 'three';
 import { RacingCar3D } from '../components/ui/racing-game/car';
 import { createWorld } from '../components/racing-game/world';
 
-// CarController: Handles car movement, orientation, and simple physics
+interface CarControls {
+  up: boolean;
+  down: boolean;
+  left: boolean;
+  right: boolean;
+}
+
+// CarController: Handles car movement, orientation, and simple physics, strictly typed
 class CarController {
   public position: THREE.Vector3;
   public rotationY: number;
   public velocity: number;
   public readonly car: RacingCar3D;
   private readonly maxSpeed: number = 0.17;
-  private readonly accel: number = 0.022/2;
-  private readonly decel: number = 0.024/2;
-  private readonly turnSpeed: number = 0.035/2;
-  private readonly trackBounds = { x: 5.5, z: 16.5 };
+  private readonly accel: number = 0.011;
+  private readonly decel: number = 0.012;
+  private readonly turnSpeed: number = 0.0175;
+  private readonly trackBounds: { x: number; z: number } = { x: 5.5, z: 16.5 };
 
   constructor(car: RacingCar3D) {
     this.car = car;
     this.position = new THREE.Vector3(0, 0, 0);
-    this.rotationY = 0; // Yaw angle in radians
+    this.rotationY = 0;
     this.velocity = 0;
   }
 
-  update(controls: { up: boolean; down: boolean; left: boolean; right: boolean; }) {
-    // --- Compute acceleration/braking ---
+  update(controls: CarControls): void {
+    // Acceleration & braking
     if (controls.up && !controls.down) {
       this.velocity += this.accel;
     } else if (!controls.up && controls.down) {
@@ -44,35 +51,31 @@ class CarController {
     if (this.velocity > this.maxSpeed) this.velocity = this.maxSpeed;
     if (this.velocity < -this.maxSpeed / 2) this.velocity = -this.maxSpeed / 2;
 
-    // --- Compute turning ---
+    // Turning
     if (controls.right && !controls.left) {
-      // 'd' or right arrow: turn right (clockwise)
-      // If moving, turn proportional to direction; if stopped, allow slow rotation
       this.rotationY -= this.turnSpeed * (this.velocity !== 0 ? (this.velocity / Math.abs(this.velocity)) : 0.65);
     }
     if (controls.left && !controls.right) {
-      // 'a' or left arrow: turn left (CCW)
       this.rotationY += this.turnSpeed * (this.velocity !== 0 ? (this.velocity / Math.abs(this.velocity)) : 0.65);
     }
 
-    // --- Update position ---
-    // Move forward relative to the car's orientation when velocity â  0
+    // Move vehicle
     if (this.velocity !== 0) {
       this.position.x += Math.sin(this.rotationY) * this.velocity;
       this.position.z += Math.cos(this.rotationY) * this.velocity;
     }
 
-    // --- Clamp position to track bounds ---
+    // Clamp to track bounds
     this.position.x = Math.max(-this.trackBounds.x, Math.min(this.trackBounds.x, this.position.x));
     this.position.z = Math.max(-this.trackBounds.z, Math.min(this.trackBounds.z, this.position.z));
 
-    // --- Sync to car 3D model ---
+    // Sync to car model
     this.car.position.copy(this.position);
     this.car.rotation.y = this.rotationY;
   }
 
   getSpeedKmH(): number {
-    return Math.abs(this.velocity) * 70; // Pseudo km/h
+    return Math.abs(this.velocity) * 70;
   }
 }
 
@@ -83,8 +86,15 @@ export class RacingGamePage extends BasePage {
   private animationId: number | null = null;
   private car: RacingCar3D | null = null;
   private carController: CarController | null = null;
-  private controls = { up: false, down: false, left: false, right: false };
+  private controls: CarControls = { up: false, down: false, left: false, right: false };
   private hudElem: HTMLElement | null = null;
+
+  // Camera-follow parameters (can be tweaked)
+  private readonly cameraDistance: number = 12.2/4;
+  private readonly cameraHeight: number = 7.2/2;
+  private readonly cameraLerpAlpha: number = 0.12; // [0,1], higher=faster snap
+  private cameraTarget: THREE.Vector3 = new THREE.Vector3();
+  private cameraLookAt: THREE.Vector3 = new THREE.Vector3();
 
   constructor() {
     super({ show_header: false });
@@ -93,13 +103,13 @@ export class RacingGamePage extends BasePage {
 
   connectedCallback(): void {
     if (!this.main.querySelector('#racing-game-canvas-placeholder')) {
-      const placeholder = document.createElement('div');
+      const placeholder: HTMLDivElement = document.createElement('div');
       placeholder.id = 'racing-game-canvas-placeholder';
       placeholder.style.margin = '0 auto';
       this.main.appendChild(placeholder);
     }
     if (!this.main.querySelector('racing-game-hud')) {
-      const hud = document.createElement('racing-game-hud');
+      const hud: HTMLElement = document.createElement('racing-game-hud');
       hud.style.position = 'absolute';
       hud.style.left = '50%';
       hud.style.top = '42px';
@@ -112,20 +122,20 @@ export class RacingGamePage extends BasePage {
     }
     this.injectStylesheet();
     this.initThreeScene();
-    window.addEventListener('keydown', this.handleKeyDown);
-    window.addEventListener('keyup', this.handleKeyUp);
+    window.addEventListener('keydown', this.handleKeyDown as (this: Window, ev: KeyboardEvent) => any);
+    window.addEventListener('keyup', this.handleKeyUp as (this: Window, ev: KeyboardEvent) => any);
   }
 
   disconnectedCallback(): void {
-    if (this.animationId) {
+    if (this.animationId !== null) {
       cancelAnimationFrame(this.animationId);
     }
     if (this.renderer) {
       this.renderer.dispose();
       this.renderer = null;
     }
-    window.removeEventListener('keydown', this.handleKeyDown);
-    window.removeEventListener('keyup', this.handleKeyUp);
+    window.removeEventListener('keydown', this.handleKeyDown as (this: Window, ev: KeyboardEvent) => any);
+    window.removeEventListener('keyup', this.handleKeyUp as (this: Window, ev: KeyboardEvent) => any);
     this.scene = null;
     this.camera = null;
     this.car = null;
@@ -134,7 +144,7 @@ export class RacingGamePage extends BasePage {
 
   private injectStylesheet(): void {
     if (this.shadowRoot?.querySelector('link[data-racing-game-css]')) return;
-    const link = document.createElement('link');
+    const link: HTMLLinkElement = document.createElement('link');
     link.rel = 'stylesheet';
     link.type = 'text/css';
     link.href = new URL('./racing-game.css', import.meta.url).toString();
@@ -143,7 +153,7 @@ export class RacingGamePage extends BasePage {
   }
 
   private initThreeScene(): void {
-    const canvasDiv = this.shadowRoot?.querySelector('#racing-game-canvas-placeholder') as HTMLDivElement;
+    const canvasDiv: HTMLDivElement | null = this.shadowRoot?.querySelector('#racing-game-canvas-placeholder') as HTMLDivElement | null;
     if (!canvasDiv || canvasDiv.querySelector('canvas')) {
       return;
     }
@@ -153,15 +163,19 @@ export class RacingGamePage extends BasePage {
 
     this.scene = new THREE.Scene();
     // Modular world/track/lighting setup
-    const world = createWorld();
-    // Optionally, also allow world module to set scene background
+    const world: THREE.Group = createWorld();
     this.scene.background = new THREE.Color(0x202025);
     const color = new THREE.Color().setRGB(0.6, 0.6, 0.6);
-    this.scene.background = new THREE.Color(color);
+    this.scene.background = color;
     this.scene.add(world);
 
-    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    this.camera.position.set(0, 9, 12);
+    this.camera = new THREE.PerspectiveCamera(
+      75,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+    this.camera.position.set(0, this.cameraHeight, this.cameraDistance);
     this.camera.lookAt(0, 0, 0);
 
     // Car: Use modular RacingCar3D and CarController
@@ -169,11 +183,14 @@ export class RacingGamePage extends BasePage {
     this.scene.add(this.car);
     this.carController = new CarController(this.car);
 
-    // Main render loop
-    const render = () => {
+    // Render loop
+    const render = (): void => {
       if (this.carController) {
         this.carController.update(this.controls);
         this.updateHUD();
+      }
+      if (this.camera && this.car && this.carController) {
+        this.updateCameraFollow();
       }
       if (this.renderer && this.scene && this.camera) {
         this.renderer.render(this.scene, this.camera);
@@ -183,7 +200,29 @@ export class RacingGamePage extends BasePage {
     render();
   }
 
-  private handleKeyDown = (event: KeyboardEvent) => {
+  // Smooth third-person camera-follow logic
+  private updateCameraFollow(): void {
+    if (!this.camera || !this.car) return;
+
+    // Compute desired offset behind and above the car, based on car's orientation
+    const carPos: THREE.Vector3 = this.car.position;
+    const rotY: number = this.car.rotation.y;
+    const offset: THREE.Vector3 = new THREE.Vector3(
+      Math.sin(rotY) * -this.cameraDistance,
+      this.cameraHeight,
+      Math.cos(rotY) * -this.cameraDistance
+    );
+    const targetPos: THREE.Vector3 = new THREE.Vector3().addVectors(carPos, offset);
+
+    // Smoothly lerp camera.position towards the target position
+    this.camera.position.lerp(targetPos, this.cameraLerpAlpha);
+
+    // Optionally, look slightly above the car for a better view
+    this.cameraLookAt.copy(carPos).setY(carPos.y + 2.2);
+    this.camera.lookAt(this.cameraLookAt);
+  }
+
+  private handleKeyDown = (event: KeyboardEvent): void => {
     switch (event.key.toLowerCase()) {
       case 'w': case 'arrowup': this.controls.up = true; break;
       case 's': case 'arrowdown': this.controls.down = true; break;
@@ -192,7 +231,7 @@ export class RacingGamePage extends BasePage {
     }
   };
 
-  private handleKeyUp = (event: KeyboardEvent) => {
+  private handleKeyUp = (event: KeyboardEvent): void => {
     switch (event.key.toLowerCase()) {
       case 'w': case 'arrowup': this.controls.up = false; break;
       case 's': case 'arrowdown': this.controls.down = false; break;
@@ -201,9 +240,9 @@ export class RacingGamePage extends BasePage {
     }
   };
 
-  private updateHUD() {
+  private updateHUD(): void {
     if (!this.hudElem || !this.carController) return;
-    const speed = this.carController.getSpeedKmH();
+    const speed: number = this.carController.getSpeedKmH();
     this.hudElem.innerHTML = `
       <div style='font-family:Orbitron,Segoe UI,sans-serif;font-size:1.28rem;font-weight:600;letter-spacing:0.08em;'>
         ð SPEED: <span style='color:#18e0c9;font-size:1.33em;'>${speed.toFixed(1)}</span> km/h

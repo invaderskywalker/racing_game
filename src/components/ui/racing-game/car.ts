@@ -35,14 +35,14 @@ export class RacingCar3D extends THREE.Group {
         } else {
           this.model.scale.setScalar(1.0);
         }
-// Center model so its base is on y=0 (resting on ground)
+        // Center model so its base is on y=0 (resting on ground)
         box.setFromObject(this.model);
         const center = box.getCenter(new THREE.Vector3());
         const minY = box.min.y;
         this.model.position.sub(center); // Center at origin
-        this.model.position.y -= minY;   // Lower to base
+        this.model.position.y = minY;   // Lower to base
         // Fix: rotate model so its front faces +Z (matching game forward direction)
-        this.model.rotation.y = Math.PI / 2;
+        this.model.rotation.y = -Math.PI / 2;
         this.add(this.model);
         this.isLoaded = true;
       },
