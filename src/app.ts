@@ -31,7 +31,7 @@ export class App {
         this.initCannoJs();
         this.initCubesCannon();
         this.loadCar();
-        // this.setupKeyControls();
+        this.setupKeyControls();
         this.animate();
 
         window.addEventListener('resize', () => this.onWindowResize());
@@ -106,8 +106,8 @@ export class App {
 
         this.physicsMaterial = new CANNON.Material('ground');
         const contact = new CANNON.ContactMaterial(this.physicsMaterial, this.physicsMaterial, {
-            friction: 0.5,
-            restitution: 0.3,
+            friction: 0.1,
+            restitution: 0.1,
         });
         this.world.addContactMaterial(contact);
 
@@ -128,12 +128,13 @@ export class App {
         const boxShape = new CANNON.Box(halfExtents);
         const boxGeometry = new THREE.BoxGeometry(size * 2, size * 2, size * 2);
         const material = new THREE.MeshStandardMaterial({ color: 0x888888 });
+        const count = 80
 
-        for (let i = -20; i < 20; i += 10) {
-            for (let j = -20; j < 20; j += 10) {
+        for (let i = -count; i < count; i += 10) {
+            for (let j = -count; j < count; j += 10) {
                 const boxBody = new CANNON.Body({ mass });
                 boxBody.addShape(boxShape);
-                boxBody.position.set(i * 2, 20, j * 2);
+                boxBody.position.set(i * 2, 10, j * 2);
                 this.world.addBody(boxBody);
 
                 const cube = new THREE.Mesh(boxGeometry, material);
@@ -152,7 +153,7 @@ export class App {
         const loader = new GLTFLoader();
         const gltf = await loader.loadAsync('/models/tesla_model_s_plaid_2023.glb');
         const car = gltf.scene;
-        car.scale.set(0.1, 0.1, 0.1);
+        car.scale.set(0.05, 0.05, 0.05);
         car.traverse((child) => {
             if ((child as THREE.Mesh).isMesh) {
                 (child as THREE.Mesh).castShadow = true;
@@ -162,15 +163,39 @@ export class App {
         this._scene.add(car);
         this.carModel = car;
 
-        const carBodyShape = new CANNON.Box(new CANNON.Vec3(1.5, 0.6, 3));
+        // ⚙️ Adjust physics box to match model
+        const carHalfExtents = new CANNON.Vec3(3, 0.1, 1.0); // much smaller box
+        const carBodyShape = new CANNON.Box(carHalfExtents);
+
         const carBody = new CANNON.Body({
-            mass: 150,
+            mass: 10,
             shape: carBodyShape,
-            position: new CANNON.Vec3(0, 5, 0),
+            position: new CANNON.Vec3(4, 40, 5),
             material: this.physicsMaterial,
         });
+        // carBody.position.set(4,40,5);
+
+        carBody.allowSleep = false;
+        carBody.linearDamping = 0.05;
+        carBody.angularDamping = 0.01;
+
+        // Slight Y offset to match car wheels' approximate height
+        carBody.position.y = 2.5;
         this.world.addBody(carBody);
         this.carBody = carBody;
+
+        const debugMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(carHalfExtents.x * 2, carHalfExtents.y * 2, carHalfExtents.z * 2),
+            new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true })
+        );
+        this._scene.add(debugMesh);
+        const box = new THREE.Box3().setFromObject(car);
+        const size = new THREE.Vector3();
+        const center = new THREE.Vector3();
+        box.getSize(size);
+        box.getCenter(center);
+        console.log('Tesla size:', size, 'center:', center);
+
     }
 
     setupKeyControls() {
@@ -180,27 +205,27 @@ export class App {
 
     moveCar(delta: number) {
         if (!this.carBody) return;
-        const force = 120;
+
+        const forwardForce = 55000; // increased, since applyForce needs more strength
         const turnSpeed = 1.5;
 
+        // Get car's forward direction from quaternion
+        const forward = new CANNON.Vec3(1, 0, 0);
+        this.carBody.quaternion.vmult(forward, forward); // rotate vector by car orientation
+
+
+        // Move forward/backward
         if (this.keys['KeyW']) {
-            const impulse = new CANNON.Vec3(
-                -Math.sin(this.carBody.quaternion.y) * force * delta,
-                0,
-                -Math.cos(this.carBody.quaternion.y) * force * delta
-            );
-            this.carBody.velocity.vadd(impulse, this.carBody.velocity);
+            const force = forward.scale(forwardForce * delta);
+            this.carBody.applyForce(force, this.carBody.position);
         }
 
         if (this.keys['KeyS']) {
-            const impulse = new CANNON.Vec3(
-                Math.sin(this.carBody.quaternion.y) * force * delta,
-                0,
-                Math.cos(this.carBody.quaternion.y) * force * delta
-            );
-            this.carBody.velocity.vadd(impulse, this.carBody.velocity);
+            const force = forward.scale(-forwardForce * delta);
+            this.carBody.applyForce(force, this.carBody.position);
         }
 
+        // Rotate car in place (simplified steering)
         if (this.keys['KeyA']) {
             this.carBody.angularVelocity.y += turnSpeed * delta;
         }
@@ -208,6 +233,7 @@ export class App {
             this.carBody.angularVelocity.y -= turnSpeed * delta;
         }
     }
+
 
     animate() {
         requestAnimationFrame(() => this.animate());
@@ -217,34 +243,38 @@ export class App {
         this.lastCallTime = time;
 
         this.moveCar(delta);
-        this.world.step(timeStep);
+        this.world.step(timeStep, delta);
 
+        // Update cube positions
         for (let i = 0; i < this.boxes.length; i++) {
             this.boxMeshes[i].position.copy(this.boxes[i].position as unknown as THREE.Vector3);
             this.boxMeshes[i].quaternion.copy(this.boxes[i].quaternion as unknown as THREE.Quaternion);
         }
 
+        // Car + camera follow
         if (this.carModel && this.carBody) {
             this.carModel.position.copy(this.carBody.position as unknown as THREE.Vector3);
             this.carModel.quaternion.copy(this.carBody.quaternion as unknown as THREE.Quaternion);
 
-            const camTarget = new THREE.Vector3(
-                this.carModel.position.x,
-                this.carModel.position.y + 4,
-                this.carModel.position.z
-            );
-            const camPos = new THREE.Vector3(
-                this.carModel.position.x - 15 * Math.sin(this.carBody.quaternion.y),
-                this.carModel.position.y + 8,
-                this.carModel.position.z - 15 * Math.cos(this.carBody.quaternion.y)
-            );
-            this._perspectiveCamera.position.lerp(camPos, 0.1);
-            this._perspectiveCamera.lookAt(camTarget);
+            // Simple follow camera
+            const offset = new THREE.Vector3(0, 6, -15); // camera offset relative to car
+            const carPos = this.carModel.position.clone();
+
+            // Create a rotation matrix from car's quaternion to apply offset in car's direction
+            const rotationMatrix = new THREE.Matrix4();
+            rotationMatrix.makeRotationFromQuaternion(this.carModel.quaternion);
+
+            const cameraOffset = offset.applyMatrix4(rotationMatrix);
+            const cameraPosition = carPos.clone().add(cameraOffset);
+
+            // this._perspectiveCamera.position.copy(cameraPosition);
+            // this._perspectiveCamera.lookAt(carPos);
         }
 
         this.cannonDebugger.update();
         this._renderer.render(this._scene, this._perspectiveCamera);
     }
+
 
     onWindowResize() {
         this._perspectiveCamera.aspect = window.innerWidth / window.innerHeight;
