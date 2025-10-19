@@ -16,7 +16,7 @@ export class App {
     _orbitControls: OrbitControls;
     physicsMaterial: CANNON.Material;
 
-    boxes: CANNON.Body[] = [];
+    boxes: any[] = [];
     boxMeshes: THREE.Mesh[] = [];
 
     carModel?: THREE.Group;
@@ -24,6 +24,11 @@ export class App {
 
     cannonDebugger: { update: () => void };
     keys: Record<string, boolean> = {};
+
+    controlledCube?: CANNON.Body;
+    cubeFacingAngle?: 0;
+    cameraMode?: string;
+
 
     constructor() {
         this.initThreeJs();
@@ -33,6 +38,9 @@ export class App {
         this.loadCar();
         this.setupKeyControls();
         this.animate();
+
+        this.cubeFacingAngle = 0; // radians, 0 means facing +Z direction
+        this.cameraMode = 'first';
 
         window.addEventListener('resize', () => this.onWindowResize());
     }
@@ -89,11 +97,11 @@ export class App {
         this._renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(this._renderer.domElement);
 
-        this._orbitControls = new OrbitControls(this._perspectiveCamera, this._renderer.domElement);
-        this._orbitControls.target.set(0, 5, 0);
-        this._orbitControls.enablePan = false;
-        this._orbitControls.enableZoom = false;
-        this._orbitControls.update();
+        // this._orbitControls = new OrbitControls(this._perspectiveCamera, this._renderer.domElement);
+        // this._orbitControls.target.set(0, 5, 0);
+        // this._orbitControls.enablePan = false;
+        // this._orbitControls.enableZoom = false;
+        // this._orbitControls.update();
     }
 
     initCannoJs() {
@@ -127,8 +135,14 @@ export class App {
         const halfExtents = new CANNON.Vec3(size, size, size);
         const boxShape = new CANNON.Box(halfExtents);
         const boxGeometry = new THREE.BoxGeometry(size * 2, size * 2, size * 2);
-        const material = new THREE.MeshStandardMaterial({ color: 0x888888 });
-        const count = 80
+        boxGeometry.center(); // Ensure geometry is centered
+
+        const solidMaterial = new THREE.MeshStandardMaterial({ color: 0x888888 });
+        const wireMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true });
+        const count = 80;
+
+        // Reset lists
+        this.boxes = [];
 
         for (let i = -count; i < count; i += 10) {
             for (let j = -count; j < count; j += 10) {
@@ -137,17 +151,41 @@ export class App {
                 boxBody.position.set(i * 2, 10, j * 2);
                 this.world.addBody(boxBody);
 
-                const cube = new THREE.Mesh(boxGeometry, material);
+                const cube = new THREE.Mesh(boxGeometry, solidMaterial);
                 cube.castShadow = true;
                 cube.receiveShadow = true;
-                cube.position.copy(boxBody.position as unknown as THREE.Vector3);
                 this._scene.add(cube);
 
-                this.boxes.push(boxBody);
-                this.boxMeshes.push(cube);
+                const wire = new THREE.Mesh(boxGeometry, wireMaterial);
+                this._scene.add(wire);
+
+                if (!this.controlledCube) {
+                    this.controlledCube = boxBody;
+                    cube.material = new THREE.MeshStandardMaterial({ color: 0x00ff00 }); // highlight it
+
+                    // 🚫 Lock rotation
+                    boxBody.angularDamping = 1; // stop angular velocity
+                    boxBody.angularVelocity.set(0, 0, 0);
+                    boxBody.fixedRotation = true;
+
+                    boxBody.linearDamping = 0.3; // smooth slowdown between frames
+
+                    boxBody.updateMassProperties();
+                }
+
+
+                // Store objects as a single record for easy sync
+                this.boxes.push({
+                    body: boxBody,
+                    mesh: cube,
+                    debug: wire
+                });
             }
         }
+
     }
+
+
 
     async loadCar() {
         const loader = new GLTFLoader();
@@ -201,6 +239,12 @@ export class App {
     setupKeyControls() {
         window.addEventListener('keydown', (e) => (this.keys[e.code] = true));
         window.addEventListener('keyup', (e) => (this.keys[e.code] = false));
+        window.addEventListener('keydown', (e) => {
+            this.keys[e.code] = true;
+            if (e.code === 'KeyC') {
+                this.cameraMode = this.cameraMode === 'first' ? 'third' : 'first';
+            }
+        });
     }
 
     moveCar(delta: number) {
@@ -234,6 +278,50 @@ export class App {
         }
     }
 
+    moveCube(delta: number) {
+        if (!this.controlledCube) return;
+
+        const body = this.controlledCube;
+        const speed = 200; // forward force
+        const turnSpeed = 2.5; // radians per second
+
+        // Rotation controls
+        if (this.keys['KeyA']) this.cubeFacingAngle += turnSpeed * delta;
+        if (this.keys['KeyD']) this.cubeFacingAngle -= turnSpeed * delta;
+
+        // Calculate movement direction based on facing angle
+        const forward = new CANNON.Vec3(
+            Math.sin(this.cubeFacingAngle),
+            0,
+            Math.cos(this.cubeFacingAngle)
+        );
+
+        const moveForce = new CANNON.Vec3(0, 0, 0);
+
+        if (this.keys['KeyW']) {
+            moveForce.x += forward.x * speed;
+            moveForce.z += forward.z * speed;
+        }
+        if (this.keys['KeyS']) {
+            moveForce.x -= forward.x * speed;
+            moveForce.z -= forward.z * speed;
+        }
+
+        body.applyForce(moveForce, body.position);
+
+        // --- Limit speed ---
+        const maxSpeed = 40;
+        const velocity = body.velocity;
+        const velLen = velocity.length();
+        if (velLen > maxSpeed) {
+            velocity.scale(maxSpeed / velLen, velocity);
+        }
+
+        // Keep upright
+        body.position.y = 2.3;
+    }
+
+
 
     animate() {
         requestAnimationFrame(() => this.animate());
@@ -242,45 +330,92 @@ export class App {
         const delta = this.lastCallTime ? time - this.lastCallTime : 0;
         this.lastCallTime = time;
 
-        this.moveCar(delta);
+        // this.moveCar(delta);
+        this.moveCube(delta);
         this.world.step(timeStep, delta);
 
-        // Update cube positions
-        for (let i = 0; i < this.boxes.length; i++) {
-            this.boxMeshes[i].position.copy(this.boxes[i].position as unknown as THREE.Vector3);
-            this.boxMeshes[i].quaternion.copy(this.boxes[i].quaternion as unknown as THREE.Quaternion);
+        // Update all cubes (solid + wire)
+        for (let { body, mesh, debug } of this.boxes) {
+            const pos = body.position as unknown as THREE.Vector3;
+            const quat = body.quaternion as unknown as THREE.Quaternion;
+
+            mesh.position.copy(pos);
+            mesh.quaternion.copy(quat);
+
+            debug.position.copy(pos);
+            debug.quaternion.copy(quat);
         }
+
+        // make the controlled cube face the direction it's moving
+        if (this.controlledCube) {
+            const controlledBox = this.boxes.find(b => b.body === this.controlledCube);
+            if (controlledBox) {
+                controlledBox.mesh.rotation.y = this.cubeFacingAngle;
+                controlledBox.debug.rotation.y = this.cubeFacingAngle;
+            }
+        }
+
 
         // Car + camera follow
-        if (this.carModel && this.carBody) {
-            this.carModel.position.copy(this.carBody.position as unknown as THREE.Vector3);
-            this.carModel.quaternion.copy(this.carBody.quaternion as unknown as THREE.Quaternion);
+        // if (this.carModel && this.carBody) {
+        //     this.carModel.position.copy(this.carBody.position as unknown as THREE.Vector3);
+        //     this.carModel.quaternion.copy(this.carBody.quaternion as unknown as THREE.Quaternion);
 
-            // Simple follow camera
-            const offset = new THREE.Vector3(0, 6, -15); // camera offset relative to car
-            const carPos = this.carModel.position.clone();
+        //     // Simple follow camera
+        //     const offset = new THREE.Vector3(0, 6, -15);
+        //     const carPos = this.carModel.position.clone();
 
-            // Create a rotation matrix from car's quaternion to apply offset in car's direction
-            const rotationMatrix = new THREE.Matrix4();
-            rotationMatrix.makeRotationFromQuaternion(this.carModel.quaternion);
+        //     const rotationMatrix = new THREE.Matrix4();
+        //     rotationMatrix.makeRotationFromQuaternion(this.carModel.quaternion);
 
-            const cameraOffset = offset.applyMatrix4(rotationMatrix);
-            const cameraPosition = carPos.clone().add(cameraOffset);
+        //     const cameraOffset = offset.applyMatrix4(rotationMatrix);
+        //     const cameraPosition = carPos.clone().add(cameraOffset);
 
-            // this._perspectiveCamera.position.copy(cameraPosition);
-            // this._perspectiveCamera.lookAt(carPos);
+        //     // this._perspectiveCamera.position.copy(cameraPosition);
+        //     // this._perspectiveCamera.lookAt(carPos);
+        // }
+
+        // --- FIRST-PERSON CAMERA ---
+        if (this.controlledCube) {
+            const cubePos = this.controlledCube.position as unknown as THREE.Vector3;
+
+            // Eye offset (slightly above center of cube)
+            const eyeHeight = 3;
+
+            // Facing direction based on cube's rotation
+            const forward = new THREE.Vector3(
+                Math.sin(this.cubeFacingAngle),
+                0,
+                Math.cos(this.cubeFacingAngle)
+            );
+
+            // Move slightly forward in local facing direction (not just world Z)
+            const forwardOffset = forward.clone().multiplyScalar(2); // increase for more forward camera
+            const heightOffset = new THREE.Vector3(0, eyeHeight, 0);
+
+            // Combine offsets
+            const cameraPos = new THREE.Vector3().copy(cubePos).add(heightOffset).add(forwardOffset);
+
+            // Look further ahead
+            const lookTarget = new THREE.Vector3().copy(cubePos).add(forward.clone().multiplyScalar(10));
+
+            // Update camera instantly for now (can smooth with lerp)
+            this._perspectiveCamera.position.copy(cameraPos);
+            this._perspectiveCamera.lookAt(lookTarget);
         }
 
-        this.cannonDebugger.update();
+
+
+        if (this.cannonDebugger) this.cannonDebugger.update();
         this._renderer.render(this._scene, this._perspectiveCamera);
     }
 
 
-    onWindowResize() {
-        this._perspectiveCamera.aspect = window.innerWidth / window.innerHeight;
-        this._perspectiveCamera.updateProjectionMatrix();
-        this._renderer.setSize(window.innerWidth, window.innerHeight);
+        onWindowResize() {
+            this._perspectiveCamera.aspect = window.innerWidth / window.innerHeight;
+            this._perspectiveCamera.updateProjectionMatrix();
+            this._renderer.setSize(window.innerWidth, window.innerHeight);
+        }
     }
-}
 
 new App();
