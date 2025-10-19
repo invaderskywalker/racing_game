@@ -28,6 +28,11 @@ export class App {
     controlledCube?: CANNON.Body;
     cubeFacingAngle?: 0;
     cameraMode?: string;
+    cubeMat?: CANNON.Material;
+
+    _smoothedCameraPos?: THREE.Vector3;
+    _smoothedLookTarget?: THREE.Vector3;
+
 
 
     constructor() {
@@ -41,6 +46,7 @@ export class App {
 
         this.cubeFacingAngle = 0; // radians, 0 means facing +Z direction
         this.cameraMode = 'first';
+
 
         window.addEventListener('resize', () => this.onWindowResize());
     }
@@ -71,7 +77,7 @@ export class App {
 
         // Ground plane
         const plane = new THREE.Mesh(
-            new THREE.PlaneGeometry(5000, 5000),
+            new THREE.PlaneGeometry(10000, 10000),
             new THREE.MeshStandardMaterial({ color: 0xffffff })
         );
         plane.rotation.x = -Math.PI / 2;
@@ -84,7 +90,7 @@ export class App {
             60,
             window.innerWidth / window.innerHeight,
             0.1,
-            1000
+            10000
         );
         camera.position.set(0, 12, -25);
         this._perspectiveCamera = camera;
@@ -112,14 +118,20 @@ export class App {
         solver.tolerance = 0.001;
         this.world.solver = new CANNON.SplitSolver(solver);
 
-        this.physicsMaterial = new CANNON.Material('ground');
-        const contact = new CANNON.ContactMaterial(this.physicsMaterial, this.physicsMaterial, {
-            friction: 0.1,
-            restitution: 0.1,
+        // Ground material
+        const groundMat = new CANNON.Material('ground');
+        this.cubeMat = new CANNON.Material('cube');
+        this.physicsMaterial = this.cubeMat;
+
+        // Contact material (interaction between cube and ground)
+        const contact = new CANNON.ContactMaterial(groundMat, this.cubeMat, {
+            friction: 0.05,      // lower = easier to start moving
+            restitution: 0.0,    // no bounce
         });
         this.world.addContactMaterial(contact);
 
-        const groundBody = new CANNON.Body({ mass: 0, material: this.physicsMaterial });
+        // Ground body
+        const groundBody = new CANNON.Body({ mass: 0, material: groundMat });
         groundBody.addShape(new CANNON.Plane());
         groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
         this.world.addBody(groundBody);
@@ -146,9 +158,10 @@ export class App {
 
         for (let i = -count; i < count; i += 10) {
             for (let j = -count; j < count; j += 10) {
-                const boxBody = new CANNON.Body({ mass });
+                // const boxBody = new CANNON.Body({ mass });
+                const boxBody = new CANNON.Body({ mass, material: this.cubeMat });
                 boxBody.addShape(boxShape);
-                boxBody.position.set(i * 2, 10, j * 2);
+                boxBody.position.set(i * 2, 3, j * 2);
                 this.world.addBody(boxBody);
 
                 const cube = new THREE.Mesh(boxGeometry, solidMaterial);
@@ -169,6 +182,8 @@ export class App {
                     boxBody.fixedRotation = true;
 
                     boxBody.linearDamping = 0.3; // smooth slowdown between frames
+                    boxBody.allowSleep = false;
+
 
                     boxBody.updateMassProperties();
                 }
@@ -282,12 +297,17 @@ export class App {
         if (!this.controlledCube) return;
 
         const body = this.controlledCube;
-        const speed = 200; // forward force
+        const speed = 800; // forward force
         const turnSpeed = 2.5; // radians per second
 
         // Rotation controls
         if (this.keys['KeyA']) this.cubeFacingAngle += turnSpeed * delta;
         if (this.keys['KeyD']) this.cubeFacingAngle -= turnSpeed * delta;
+
+        // --- Rotate the physics body to face the same angle ---
+        const quat = new CANNON.Quaternion();
+        quat.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), this.cubeFacingAngle);
+        body.quaternion.copy(quat);
 
         // Calculate movement direction based on facing angle
         const forward = new CANNON.Vec3(
@@ -306,7 +326,7 @@ export class App {
             moveForce.x -= forward.x * speed;
             moveForce.z -= forward.z * speed;
         }
-
+        // console.log("move", moveForce)
         body.applyForce(moveForce, body.position);
 
         // --- Limit speed ---
@@ -316,9 +336,6 @@ export class App {
         if (velLen > maxSpeed) {
             velocity.scale(maxSpeed / velLen, velocity);
         }
-
-        // Keep upright
-        body.position.y = 2.3;
     }
 
 
@@ -355,53 +372,84 @@ export class App {
             }
         }
 
-
-        // Car + camera follow
-        // if (this.carModel && this.carBody) {
-        //     this.carModel.position.copy(this.carBody.position as unknown as THREE.Vector3);
-        //     this.carModel.quaternion.copy(this.carBody.quaternion as unknown as THREE.Quaternion);
-
-        //     // Simple follow camera
-        //     const offset = new THREE.Vector3(0, 6, -15);
-        //     const carPos = this.carModel.position.clone();
-
-        //     const rotationMatrix = new THREE.Matrix4();
-        //     rotationMatrix.makeRotationFromQuaternion(this.carModel.quaternion);
-
-        //     const cameraOffset = offset.applyMatrix4(rotationMatrix);
-        //     const cameraPosition = carPos.clone().add(cameraOffset);
-
-        //     // this._perspectiveCamera.position.copy(cameraPosition);
-        //     // this._perspectiveCamera.lookAt(carPos);
-        // }
-
         // --- FIRST-PERSON CAMERA ---
         if (this.controlledCube) {
-            const cubePos = this.controlledCube.position as unknown as THREE.Vector3;
+            if (this.cameraMode == "first") {
+                const cubePos = this.controlledCube.position as unknown as THREE.Vector3;
 
-            // Eye offset (slightly above center of cube)
-            const eyeHeight = 3;
+                // Eye offset (slightly above center of cube)
+                const eyeHeight = 3;
 
-            // Facing direction based on cube's rotation
-            const forward = new THREE.Vector3(
-                Math.sin(this.cubeFacingAngle),
-                0,
-                Math.cos(this.cubeFacingAngle)
-            );
+                // Facing direction based on cube's rotation
+                const forward = new THREE.Vector3(
+                    Math.sin(this.cubeFacingAngle),
+                    0,
+                    Math.cos(this.cubeFacingAngle)
+                );
 
-            // Move slightly forward in local facing direction (not just world Z)
-            const forwardOffset = forward.clone().multiplyScalar(2); // increase for more forward camera
-            const heightOffset = new THREE.Vector3(0, eyeHeight, 0);
+                // Move slightly forward in local facing direction (not just world Z)
+                const forwardOffset = forward.clone().multiplyScalar(2); // increase for more forward camera
+                const heightOffset = new THREE.Vector3(0, eyeHeight, 0);
 
-            // Combine offsets
-            const cameraPos = new THREE.Vector3().copy(cubePos).add(heightOffset).add(forwardOffset);
+                // Combine offsets
+                const cameraPos = new THREE.Vector3().copy(cubePos).add(heightOffset).add(forwardOffset);
 
-            // Look further ahead
-            const lookTarget = new THREE.Vector3().copy(cubePos).add(forward.clone().multiplyScalar(10));
+                // Look further ahead
+                const lookTarget = new THREE.Vector3().copy(cubePos).add(forward.clone().multiplyScalar(10));
 
-            // Update camera instantly for now (can smooth with lerp)
-            this._perspectiveCamera.position.copy(cameraPos);
-            this._perspectiveCamera.lookAt(lookTarget);
+                // Update camera instantly for now (can smooth with lerp)
+                this._perspectiveCamera.position.copy(cameraPos);
+                this._perspectiveCamera.lookAt(lookTarget);
+            } else if (this.cameraMode === "third") {
+                const cubePos = this.controlledCube.position as unknown as THREE.Vector3;
+
+
+                // Facing direction based on cube's rotation
+                const forward = new THREE.Vector3(
+                    Math.sin(this.cubeFacingAngle),
+                    0,
+                    Math.cos(this.cubeFacingAngle)
+                );
+
+                // Camera offset parameters
+                const followDistance = 10; // distance behind cube
+                const height = 5;          // height above cube
+
+
+
+                // Desired camera position (target)
+                const targetCamPos = new THREE.Vector3()
+                    .copy(cubePos)
+                    .add(forward.clone().multiplyScalar(-followDistance))
+                    .add(new THREE.Vector3(0, height, 0));
+
+                if (!this._smoothedCameraPos)
+                    this._smoothedCameraPos = new THREE.Vector3().copy(targetCamPos);
+
+
+
+                // --- SMOOTH DAMP (fix for jitter) ---
+                if (!this._smoothedCameraPos) this._smoothedCameraPos = new THREE.Vector3().copy(targetCamPos);
+                this._smoothedCameraPos.lerp(targetCamPos, 0.08); // <— smoothing factor (0.05–0.2 works well)
+
+                // Use smoothed position instead of direct
+                this._perspectiveCamera.position.copy(this._smoothedCameraPos);
+
+
+
+                // Smooth look-at too
+                const lookTarget = new THREE.Vector3().copy(cubePos).add(forward.clone().multiplyScalar(5));
+
+                if (!this._smoothedLookTarget)
+                    this._smoothedLookTarget = new THREE.Vector3().copy(lookTarget);
+
+                if (!this._smoothedLookTarget) this._smoothedLookTarget = new THREE.Vector3().copy(lookTarget);
+                this._smoothedLookTarget.lerp(lookTarget, 0.1);
+
+                this._perspectiveCamera.lookAt(this._smoothedLookTarget);
+            }
+
+
         }
 
 
@@ -411,11 +459,11 @@ export class App {
     }
 
 
-        onWindowResize() {
-            this._perspectiveCamera.aspect = window.innerWidth / window.innerHeight;
-            this._perspectiveCamera.updateProjectionMatrix();
-            this._renderer.setSize(window.innerWidth, window.innerHeight);
-        }
+    onWindowResize() {
+        this._perspectiveCamera.aspect = window.innerWidth / window.innerHeight;
+        this._perspectiveCamera.updateProjectionMatrix();
+        this._renderer.setSize(window.innerWidth, window.innerHeight);
     }
+}
 
 new App();
