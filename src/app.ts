@@ -102,7 +102,7 @@ export class App {
         this.coinManager = new CoinManager({
             scene: this._scene,
             world: this.physics.world,
-            coinMaterial: this.physics.cubeMaterial,
+            // coinMaterial: this.physics.cubeMaterial,
             coinColor: 0xffe152,
             coinCount: 10
         });
@@ -127,7 +127,7 @@ export class App {
                 return activePlayer ? activePlayer.body.position.clone() as unknown as THREE.Vector3 : new THREE.Vector3(0, 2, 0);
             },
             projectileManager: this.projectileManager,
-            maxEnemies: 5,
+            maxEnemies: 4,
             spawnArea: { x: 0, y: 2, z: 0, size: 100, range: 100 },
             spawnIntervalSec: 6
         });
@@ -208,24 +208,42 @@ export class App {
         // --- Shooting ---
         const shootAction = this.input.isActionActive('shoot');
         if (activePlayer && shootAction && !this.prevShootState) {
-            // Shoot bullet in facing direction from activePlayer
-            const camParams = activePlayer.getCameraParams();
-            const muzzle = camParams.position.clone(); // muzzle position
-            let shootDir = camParams.lookTarget.clone().sub(camParams.position).normalize();
-            // If the cam is very near lookTarget (first-person), ensure forward vector
-            if (shootDir.length() < 0.1) shootDir = new THREE.Vector3(0,0,1);
+            // ---
+            // NEW: Bullets spawn at center of player's forward face plus 1 unit ahead, in forward direction
+            // ---
+            // const playerBodyPos = activePlayer.body.position as unknown as THREE.Vector3;
+            const playerBodyPos = new THREE.Vector3(
+                activePlayer.body.position.x,
+                activePlayer.body.position.y,
+                activePlayer.body.position.z
+            );
+
+            // If player has size property, use it; else default to 2
+            const playerSize = (activePlayer as any).size !== undefined ? (activePlayer as any).size : 2;
+            // Facing direction (XZ plane, no vertical aiming)
+            const facingAngle = (activePlayer as any).facingAngle !== undefined ? (activePlayer as any).facingAngle : 0;
+            const forward = new THREE.Vector3(Math.sin(facingAngle), 0, Math.cos(facingAngle)).normalize();
+            // Compute muzzle: center of front face + 1 unit ahead
+            // Player cubes are centered at playerBodyPos; forward face is at (size) units along forward
+            // So offset is (size + 1) along forward vector
+            const muzzle = playerBodyPos.clone().add(forward.clone().multiplyScalar(playerSize + 1));
+            const shootDir = forward.clone(); // already normalized
             this.projectileManager.spawnBullet(
                 muzzle,
                 shootDir,
                 'player',
-                120,
-                25
+                200,
+                10
             );
         }
         this.prevShootState = shootAction;
 
         // --- Physics ---
         this.physics.step(delta, timeStep);
+        // call debug lines again (after physics moves player)
+        if (activePlayer && (activePlayer as any).updateDebugLines) {
+            (activePlayer as any).updateDebugLines();
+        }
 
         // --- Coin Collection ---
         const playerBodies: CANNON.Body[] = [];
@@ -234,7 +252,10 @@ export class App {
             if (player && player.body) playerBodies.push(player.body);
         }
         if (this.coinManager && playerBodies.length > 0) {
-            this.coinManager.update(playerBodies);
+            const playerPositions = playerBodies.map(b => ({
+                position: new THREE.Vector3(b.position.x, b.position.y, b.position.z)
+            }));
+            this.coinManager.update(playerPositions);
         }
 
         // --- Update modular managers per frame ---

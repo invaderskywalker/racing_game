@@ -1,6 +1,7 @@
 // Basic modular HUD Manager for overlay UI elements
 // Subscribes to eventBus, displays: score, coins, health, bullets, enemies
 import { eventBus } from '../utils/event-bus';
+import './hud.css';
 
 export type HUDState = {
     score: number;
@@ -28,22 +29,7 @@ export class HUDManager {
     constructor() {
         // Create and inject overlay DOM
         this.root = document.createElement('div');
-        this.root.id = 'hud-overlay';
-        this.root.style.position = 'fixed';
-        this.root.style.top = '0';
-        this.root.style.left = '0';
-        this.root.style.width = '100vw';
-        this.root.style.display = 'flex';
-        this.root.style.justifyContent = 'space-between';
-        this.root.style.alignItems = 'start';
-        this.root.style.padding = '12px 24px 0 24px';
-        this.root.style.color = '#fff';
-        this.root.style.fontFamily = 'monospace, sans-serif';
-        this.root.style.fontSize = '20px';
-        this.root.style.zIndex = '99';
-        this.root.style.pointerEvents = 'none';
-        this.root.style.userSelect = 'none';
-        this.root.style.textShadow = '0 1px 5px #222';
+        this.root.className = 'hud-overlay';
         this.root.innerHTML = this.render();
         document.body.appendChild(this.root);
         // Listen to events for HUD updates
@@ -64,7 +50,7 @@ export class HUDManager {
     render() {
         const s = this.state;
         return `
-        <div style="background:rgba(16,20,31,0.7);padding:8px 20px;border-radius:8px;">
+        <div class="hud-panel">
           <span>Score: ${s.score.toString().padStart(5,'0')}</span>
           &nbsp; | &nbsp;
           <span>Coins: ${s.coins}/${s.coinsTotal}</span>
@@ -73,7 +59,7 @@ export class HUDManager {
           &nbsp; | &nbsp;
           <span>Bullets: ${s.bullets}/${s.maxBullets}</span>
         </div>
-        <div style="background:rgba(47,25,56,.7);padding:8px 18px;border-radius:8px;min-width:100px;text-align:right;">
+        <div class="hud-panel">
           <span>ENEMIES: ${s.enemies}</span>
         </div>
         `;

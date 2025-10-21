@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { eventBus } from '../utils/event-bus';
+import { AudioManager } from './AudioManager';
 
 export interface Projectile {
     mesh: THREE.Mesh;
@@ -41,8 +42,8 @@ export class ProjectileManager {
         position: THREE.Vector3,
         direction: THREE.Vector3,
         owner: 'player' | 'enemy' = 'player',
-        speed: number = 120,
-        damage: number = 25
+        speed: number = 200,
+        damage: number = 4
     ) {
         if (owner === 'player') {
             const active = this.projectiles.filter(p => p.owner === 'player' && p.alive).length;
@@ -89,6 +90,15 @@ export class ProjectileManager {
         eventBus.emit('bullet.fired', {
             bullets: this.projectiles.filter(p => p.owner === owner && p.alive).length
         });
+
+        // *** Play bullet shooting sound ***
+        try {
+            AudioManager.getInstance().play('bullet-shoot.mp3');
+        } catch (e) {
+            // Optionally, catch audio errors so game logic always continues
+            // console.warn('Failed to play bullet shoot audio', e);
+        }
+
         return true;
     }
 

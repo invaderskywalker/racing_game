@@ -76,8 +76,8 @@ export class EnemyManager {
                         new THREE.Vector3().copy(e.body.position),
                         toPlayer,
                         'enemy',
-                        60, // speed
-                        14 // damage
+                        100, // speed
+                        10 // damage
                     );
                 }
                 cooldown = 1.7 + Math.random() * 1.0;

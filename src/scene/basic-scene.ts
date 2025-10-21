@@ -20,7 +20,7 @@ export class BasicSceneModule {
             groundColor = 0xffffff,
             groundSize = 10000,
             ambientIntensity = 0.7,
-            directionalIntensity = 1.2
+            directionalIntensity = 1
         } = config;
         this.scene = new THREE.Scene();
         // Skybox
@@ -36,9 +36,20 @@ export class BasicSceneModule {
         this.scene.add(this.ambientLight);
         // Directional light
         this.directionalLight = new THREE.DirectionalLight(0xffffff, directionalIntensity);
-        this.directionalLight.position.set(50, 50, 50);
+        this.directionalLight.position.set(50, 200, 50);
         this.directionalLight.castShadow = true;
-        this.directionalLight.shadow.mapSize.set(2048, 2048);
+
+        // Expand shadow camera frustum to cover the whole scene area
+        const shadowCam = this.directionalLight.shadow.camera as THREE.OrthographicCamera;
+        shadowCam.left = -200;
+        shadowCam.right = 200;
+        shadowCam.top = 200;
+        shadowCam.bottom = -200;
+        shadowCam.near = 0.1;
+        shadowCam.far = 500;
+        shadowCam.updateProjectionMatrix();
+
+        this.directionalLight.shadow.mapSize.set(100000, 10000);
         this.directionalLight.shadow.camera.near = 0.1;
         this.directionalLight.shadow.camera.far = 500;
         this.scene.add(this.directionalLight);

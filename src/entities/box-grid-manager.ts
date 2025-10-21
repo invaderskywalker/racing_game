@@ -8,6 +8,7 @@ export interface BoxGridManagerConfig {
     cubeMaterial?: CANNON.Material;
     solidColor?: THREE.ColorRepresentation;
     wireColor?: THREE.ColorRepresentation;
+    distance?: number;
 }
 
 export class BoxGridManager {
@@ -18,12 +19,13 @@ export class BoxGridManager {
         config: BoxGridManagerConfig = {}
     ) {
         const {
-            mass = 5,
+            mass = 100,
             size = 2,
             count = 80,
             cubeMaterial = undefined,
             solidColor = 0x888888,
-            wireColor = 0xff0000
+            wireColor = 0x0000ff,
+            distance=3,
         } = config;
         const halfExtents = new CANNON.Vec3(size, size, size);
         const boxShape = new CANNON.Box(halfExtents);
@@ -35,7 +37,7 @@ export class BoxGridManager {
             for (let j = -count; j < count; j += 10) {
                 const boxBody = new CANNON.Body({ mass, material: cubeMaterial });
                 boxBody.addShape(boxShape);
-                boxBody.position.set(i * 2, 3, j * 2);
+                boxBody.position.set(i * distance, 3, j * distance);
                 this.world.addBody(boxBody);
                 const cube = new THREE.Mesh(boxGeometry, solidMaterial);
                 cube.castShadow = true;

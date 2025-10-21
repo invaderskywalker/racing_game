@@ -24,9 +24,9 @@ export class PlayerManager {
         if (config.enableCube !== false) {
             this.players.set('cube', new CubePlayer(scene, world, cubeMaterial));
         }
-        if (config.enableCar !== false) {
-            this.players.set('car', new CarPlayer(scene, world, physicsMaterial));
-        }
+        // if (config.enableCar !== false) {
+        //     this.players.set('car', new CarPlayer(scene, world, physicsMaterial));
+        // }
         // Always default to cube if present, otherwise car
         if (this.players.has('cube')) {
             this.currentKey = 'cube';
@@ -59,6 +59,9 @@ export class PlayerManager {
         if (p) {
             p.move(delta, keys);
             p.syncToPhysics();
+            if (typeof (p as any).updateDebugLines === "function") {
+                (p as any).updateDebugLines();
+            }
         }
     }
 }
